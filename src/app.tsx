@@ -104,6 +104,48 @@ function FallbackItem({ appInfo }: { appInfo: AppInfo }) {
   )
 }
 
+function EdgeSensor({ setDockTrigger }: { setDockTrigger: (value: boolean) => void }) {
+  let triggerTimeout: number | null = null
+
+  const show = () => {
+    if (triggerTimeout) {
+      clearTimeout(triggerTimeout)
+      triggerTimeout = null
+    }
+    setDockTrigger(true)
+  }
+
+  const hide = () => {
+    if (triggerTimeout) clearTimeout(triggerTimeout)
+    triggerTimeout = setTimeout(() => {
+      setDockTrigger(false)
+      triggerTimeout = null
+    }, EDGE_HIDE_TIMEOUT)
+  }
+
+  return (
+    <window
+      visible
+      name="astal-niri-dock-sensor"
+      namespace="astal-niri-dock-sensor"
+      class="EdgeSensor"
+      layer={Astal.Layer.BACKGROUND}
+      exclusivity={Astal.Exclusivity.IGNORE}
+      keymode={Astal.Keymode.NONE}
+      anchor={Astal.WindowAnchor.BOTTOM | Astal.WindowAnchor.LEFT | Astal.WindowAnchor.RIGHT}
+      defaultHeight={6}
+      $={(self) => {
+        const motion = new Gtk.EventControllerMotion()
+        motion.connect("enter", show)
+        motion.connect("leave", hide)
+        self.add_controller(motion)
+      }}
+    >
+      <box class="EdgeSensorFill" />
+    </window>
+  )
+}
+
 function Dock({ showDock, setDockHovered }: {
   showDock: ReturnType<typeof createComputed<boolean>>
   setDockHovered: (value: boolean) => void
@@ -166,48 +208,6 @@ function Dock({ showDock, setDockHovered }: {
   )
 }
 
-function EdgeSensor({ setDockTrigger }: { setDockTrigger: (value: boolean) => void }) {
-  let triggerTimeout: number | null = null
-
-  const show = () => {
-    if (triggerTimeout) {
-      clearTimeout(triggerTimeout)
-      triggerTimeout = null
-    }
-    setDockTrigger(true)
-  }
-
-  const hide = () => {
-    if (triggerTimeout) clearTimeout(triggerTimeout)
-    triggerTimeout = setTimeout(() => {
-      setDockTrigger(false)
-      triggerTimeout = null
-    }, EDGE_HIDE_TIMEOUT)
-  }
-
-  return (
-    <window
-      visible
-      name="astal-niri-dock-sensor"
-      namespace="astal-niri-dock-sensor"
-      class="EdgeSensor"
-      layer={Astal.Layer.OVERLAY}
-      exclusivity={Astal.Exclusivity.IGNORE}
-      keymode={Astal.Keymode.NONE}
-      anchor={Astal.WindowAnchor.BOTTOM | Astal.WindowAnchor.LEFT | Astal.WindowAnchor.RIGHT}
-      defaultHeight={6}
-      $={(self) => {
-        const motion = new Gtk.EventControllerMotion()
-        motion.connect("enter", show)
-        motion.connect("leave", hide)
-        self.add_controller(motion)
-      }}
-    >
-      <box class="EdgeSensorFill" />
-    </window>
-  )
-}
-
 app.start({
   instanceName: "astal-niri-dock",
   css,
@@ -239,7 +239,7 @@ app.start({
 
     return [
       <window
-        visible
+        visible={showDock}
         name="astal-niri-dock"
         namespace="astal-niri-dock"
         class="DockWindow"
