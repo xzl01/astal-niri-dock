@@ -1,0 +1,15 @@
+{
+  "name": "astal-niri-dock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "ags run --gtk 4 ./src/app.tsx",
+    "inspect": "ags inspect",
+    "types": "ags types -u -d .",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
