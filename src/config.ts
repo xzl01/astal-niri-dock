@@ -14,7 +14,7 @@ const defaultConfig: DockConfig = {
 }
 
 export function loadConfig(): DockConfig {
-  const path = "config.json"
+  const path = "/home/xzl/Dev/astal-niri-dock/config.json"
   const file = Gio.File.new_for_path(path)
 
   try {

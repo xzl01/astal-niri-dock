@@ -195,7 +195,7 @@ function EdgeSensor({ setDockTrigger }: { setDockTrigger: (value: boolean) => vo
       exclusivity={Astal.Exclusivity.IGNORE}
       keymode={Astal.Keymode.NONE}
       anchor={Astal.WindowAnchor.BOTTOM | Astal.WindowAnchor.LEFT | Astal.WindowAnchor.RIGHT}
-      defaultHeight={2}
+      defaultHeight={6}
       $={(self) => {
         const motion = new Gtk.EventControllerMotion()
         motion.connect("enter", show)
