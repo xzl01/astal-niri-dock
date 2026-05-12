@@ -146,8 +146,7 @@ function EdgeSensor({ setDockTrigger }: { setDockTrigger: (value: boolean) => vo
   )
 }
 
-function Dock({ showDock, setDockHovered }: {
-  showDock: ReturnType<typeof createComputed<boolean>>
+function Dock({ setDockHovered }: {
   setDockHovered: (value: boolean) => void
 }) {
   let leaveTimeout: number | null = null
@@ -178,7 +177,7 @@ function Dock({ showDock, setDockHovered }: {
   if (!niri) {
     return (
       <box
-        class={createComputed((get) => `DockBarContainer${get(showDock) ? "" : " slide-out"}`)}
+        class="DockBarContainer"
         halign={Gtk.Align.CENTER}
         valign={Gtk.Align.END}
         $={attachHover}
@@ -196,7 +195,7 @@ function Dock({ showDock, setDockHovered }: {
 
   return (
     <box
-      class={createComputed((get) => `DockBarContainer${get(showDock) ? "" : " slide-out"}`)}
+      class="DockBarContainer"
       halign={Gtk.Align.CENTER}
       valign={Gtk.Align.END}
       $={attachHover}
@@ -250,7 +249,7 @@ app.start({
         defaultHeight={96}
         marginBottom={4}
       >
-        <Dock showDock={showDock} setDockHovered={setDockHovered} />
+        <Dock setDockHovered={setDockHovered} />
       </window>,
       <EdgeSensor setDockTrigger={setDockTrigger} />,
     ]

@@ -1,4 +1,5 @@
 import Gio from "gi://Gio"
+import GLib from "gi://GLib?version=2.0"
 
 export type DockConfig = {
   pinned: string[]
@@ -14,7 +15,7 @@ const defaultConfig: DockConfig = {
 }
 
 export function loadConfig(): DockConfig {
-  const path = "/home/xzl/Dev/astal-niri-dock/config.json"
+  const path = `${GLib.get_home_dir()}/Dev/astal-niri-dock/config.json`
   const file = Gio.File.new_for_path(path)
 
   try {

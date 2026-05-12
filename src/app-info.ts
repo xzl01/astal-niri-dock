@@ -16,6 +16,8 @@ const applications = new Apps.Apps({
   executableMultiplier: 2,
 })
 
+const findAppCache = new Map<string, AppInfo>()
+
 function normalize(value: string): string {
   return value
     .toLowerCase()
@@ -51,6 +53,9 @@ function appCandidates(app: Apps.Application): string[] {
 }
 
 export function findApp(id: string): AppInfo {
+  const cached = findAppCache.get(id)
+  if (cached) return cached
+
   const wantedForms = appIdForms(id)
   const exact = applications.list.find((app) => {
     const candidates = appCandidates(app)
@@ -61,7 +66,7 @@ export function findApp(id: string): AppInfo {
   const app = exact
 
   if (!app) {
-    return {
+    const fallback: AppInfo = {
       id,
       name: id.replace(/\.desktop$/, ""),
       iconName: "application-x-executable",
@@ -70,11 +75,13 @@ export function findApp(id: string): AppInfo {
       candidates: [normalize(id)],
       launch: () => printerr(`astal-niri-dock: no desktop entry found for ${id}`),
     }
+    findAppCache.set(id, fallback)
+    return fallback
   }
 
   const candidates = appCandidates(app)
 
-  return {
+  const result: AppInfo = {
     id: appId(app),
     name: app.name || id,
     iconName: app.iconName || "application-x-executable",
@@ -83,6 +90,8 @@ export function findApp(id: string): AppInfo {
     candidates,
     launch: () => app.launch(),
   }
+  findAppCache.set(id, result)
+  return result
 }
 
 export function matchAppId(app: AppInfo, appIdOrClass: string): boolean {
