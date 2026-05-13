@@ -129,7 +129,7 @@ function EdgeSensor({ setDockTrigger }: { setDockTrigger: (value: boolean) => vo
       name="astal-niri-dock-sensor"
       namespace="astal-niri-dock-sensor"
       class="EdgeSensor"
-      layer={Astal.Layer.BACKGROUND}
+      layer={Astal.Layer.OVERLAY}
       exclusivity={Astal.Exclusivity.IGNORE}
       keymode={Astal.Keymode.NONE}
       anchor={Astal.WindowAnchor.BOTTOM | Astal.WindowAnchor.LEFT | Astal.WindowAnchor.RIGHT}
@@ -146,7 +146,8 @@ function EdgeSensor({ setDockTrigger }: { setDockTrigger: (value: boolean) => vo
   )
 }
 
-function Dock({ setDockHovered }: {
+function Dock({ showDock, setDockHovered }: {
+  showDock: ReturnType<typeof createComputed<boolean>>
   setDockHovered: (value: boolean) => void
 }) {
   let leaveTimeout: number | null = null
@@ -177,7 +178,7 @@ function Dock({ setDockHovered }: {
   if (!niri) {
     return (
       <box
-        class="DockBarContainer"
+        class={createComputed((get) => `DockBarContainer${get(showDock) ? "" : " slide-out"}`)}
         halign={Gtk.Align.CENTER}
         valign={Gtk.Align.END}
         $={attachHover}
@@ -195,7 +196,7 @@ function Dock({ setDockHovered }: {
 
   return (
     <box
-      class="DockBarContainer"
+      class={createComputed((get) => `DockBarContainer${get(showDock) ? "" : " slide-out"}`)}
       halign={Gtk.Align.CENTER}
       valign={Gtk.Align.END}
       $={attachHover}
@@ -249,7 +250,7 @@ app.start({
         defaultHeight={96}
         marginBottom={4}
       >
-        <Dock setDockHovered={setDockHovered} />
+        <Dock showDock={showDock} setDockHovered={setDockHovered} />
       </window>,
       <EdgeSensor setDockTrigger={setDockTrigger} />,
     ]
