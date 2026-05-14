@@ -73,14 +73,14 @@ export function windowAppId(window: NiriWindow): string {
   const appId = dynamic.appId ?? dynamic.app_id ?? ""
   if (typeof appId === "string" && appId.length > 0) return appId
 
+  const niriWindow = niriWindowJsonForId(window.id)
+  if (niriWindow?.app_id) return niriWindow.app_id
+
   const wmClass = dynamic.wmClass ?? dynamic.wm_class ?? ""
   if (typeof wmClass === "string" && wmClass.length > 0) return wmClass
 
-  const processName = processNameForPid(dynamic.pid)
+  const processName = processNameForPid(dynamic.pid ?? niriWindow?.pid)
   if (processName.length > 0) return processName
-
-  const niriWindow = niriWindowJsonForId(window.id)
-  if (niriWindow?.app_id) return niriWindow.app_id
 
   return typeof appId === "string" ? appId : String(appId)
 }
