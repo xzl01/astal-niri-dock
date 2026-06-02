@@ -99,6 +99,7 @@ Dock 条目由两类来源组成：
 
 1. `config.json` 里的固定应用
 2. niri 当前窗口列表里的运行应用
+3. `config.json` 里的天气摘要和天气弹窗数据
 
 核心流程：
 
@@ -259,10 +260,26 @@ window.focus(id)
 }
 ```
 
+## 天气组件
+
+当前 AGS 版本先实现左侧状态槽和天气，不实现文件夹 stack。
+
+天气数据来自 `config.json` 的 `weather` 字段：
+
+- Dock 左侧是 `StatusDockItem`，点击可在 `status.task` 和 `weather` 两种状态之间切换。
+- 任务状态显示图标、任务标题、副标题和静态进度条。
+- 天气状态显示天气图标、温度、天气和温度范围。
+- 鼠标进入天气状态或点击切换到天气状态时显示 `astal-niri-dock-weather` popup。
+- popup 使用独立 overlay layer window，避免受 Dock 主窗口 96px 高度限制。
+- 鼠标从左侧状态槽移动到 popup 时共享同一个隐藏 timer，减少闪烁。
+- 数据是静态配置；后续如需实时天气或真实 agent 状态，再接 API 和缓存。
+
+文件夹网格弹窗暂不做。
+
 配置文件路径目前写死在 `src/config.ts`：
 
 ```ts
-const path = "config.json"
+const path = `${GLib.get_home_dir()}/Dev/astal-niri-dock/config.json`
 ```
 
 如果后续要安装成系统服务或迁移目录，这里应该改成 XDG config 路径。

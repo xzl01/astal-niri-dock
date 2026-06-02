@@ -6,6 +6,7 @@ Archived Astal/AGS GTK4 prototype dock for niri. This project is kept for refere
 
 - Runs as an AGS GTK4 layer-shell dock on niri.
 - Auto-hides with a bottom edge sensor.
+- Shows a configurable left status slot that can switch between task status and weather.
 - Uses `AstalApps` for desktop entries and launching.
 - Uses `AstalNiri` for windows, focus, urgency, and click-to-focus.
 - Has custom glass styling in `src/style.css`.
@@ -73,6 +74,33 @@ Edit `config.json`:
   "pinned": ["firefox.desktop", "org.kde.dolphin.desktop", "code.desktop", "kitty.desktop"]
 }
 ```
+
+## Configure weather
+
+`config.json` also contains a static weather block used by the dock summary and popup. Set `"enabled": false` to hide it. This is intentionally config-driven for now; live weather API integration can be added later without changing the dock layout.
+
+## Configure left status
+
+The left dock slot is controlled by `status`. Its default task view is static config for now:
+
+```json
+{
+  "status": {
+    "enabled": true,
+    "initial": "task",
+    "task": {
+      "enabled": true,
+      "title": "3 / 5 条任务",
+      "subtitle": "codex",
+      "progress": 0.6
+    }
+  }
+}
+```
+
+Click the slot to switch between task and weather. Weather details only open when the slot is currently in weather mode.
+
+Folder stack popups are not implemented yet.
 
 ## Optional niri autostart
 

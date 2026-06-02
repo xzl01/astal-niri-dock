@@ -4,5 +4,35 @@
     "org.kde.dolphin.desktop",
     "code.desktop",
     "kitty.desktop"
-  ]
+  ],
+  "status": {
+    "enabled": true,
+    "initial": "task",
+    "task": {
+      "enabled": true,
+      "iconName": "utilities-terminal-symbolic",
+      "title": "3 / 5 条任务",
+      "subtitle": "codex",
+      "progress": 0.6
+    }
+  },
+  "weather": {
+    "enabled": true,
+    "location": "Hong Kong",
+    "currentLabel": "今天",
+    "temperature": "30",
+    "unit": "摄氏度",
+    "range": "26-30°C",
+    "condition": "多云",
+    "iconName": "weather-few-clouds-symbolic",
+    "forecast": [
+      { "day": "星期二", "range": "26-31°C", "iconName": "weather-few-clouds-symbolic", "summary": "多云" },
+      { "day": "星期三", "range": "27-32°C", "iconName": "weather-few-clouds-symbolic", "summary": "多云" },
+      { "day": "星期四", "range": "28-34°C", "iconName": "weather-showers-scattered-symbolic", "summary": "阵雨" },
+      { "day": "星期五", "range": "28-35°C", "iconName": "weather-showers-scattered-symbolic", "summary": "阵雨" },
+      { "day": "星期六", "range": "27-31°C", "iconName": "weather-showers-scattered-symbolic", "summary": "阵雨" },
+      { "day": "星期日", "range": "26-29°C", "iconName": "weather-few-clouds-symbolic", "summary": "多云" },
+      { "day": "星期一", "range": "26-29°C", "iconName": "weather-few-clouds-symbolic", "summary": "多云" }
+    ]
+  }
 }
