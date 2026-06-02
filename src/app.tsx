@@ -198,7 +198,9 @@ function WeatherPopup({
             </box>
           </box>
           <box class="WeatherForecastPane" orientation={Gtk.Orientation.VERTICAL}>
-            <For each={weather.forecast}>{(item) => <WeatherForecastRow item={item} />}</For>
+            <box class="WeatherForecastPane" orientation={Gtk.Orientation.VERTICAL}>
+              {weather.forecast.map((item) => <WeatherForecastRow item={item} />)}
+            </box>
           </box>
         </box>
       </box>
