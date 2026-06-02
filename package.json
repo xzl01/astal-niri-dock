@@ -4,10 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "ags run --gtk 4 ./src/app.tsx",
-    "inspect": "ags inspect",
-    "types": "ags types -u -d .",
-    "check": "tsc --noEmit"
+    "start": "./scripts/start.sh",
+    "stop": "./scripts/stop.sh",
+    "debug": "./scripts/debug.sh",
+    "check": "./scripts/check.sh",
+    "verify:migration": "python3 scripts/verify-migration.py",
+    "verify:runtime": "./scripts/verify-runtime.sh",
+    "legacy:ags:start": "ags run --gtk 4 ./src/app.tsx",
+    "legacy:ags:inspect": "ags inspect",
+    "legacy:ags:types": "ags types -u -d .",
+    "legacy:tsc": "tsc --noEmit"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

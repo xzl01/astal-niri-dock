@@ -1,30 +1,28 @@
 # astal-niri-dock
 
-Archived Astal/AGS GTK4 prototype dock for niri. This project is kept for reference and local experimentation.
+Qt6/QML dock for niri, migrated from the archived Astal/AGS GTK4 prototype in this repository.
 
 ## Current status
 
-- Runs as an AGS GTK4 layer-shell dock on niri.
+- Uses Qt6/QML for the dock UI.
+- Uses LayerShellQt for Wayland overlay-layer windows on niri.
 - Auto-hides with a bottom edge sensor.
-- Uses `AstalApps` for desktop entries and launching.
-- Uses `AstalNiri` for windows, focus, urgency, and click-to-focus.
-- Has custom glass styling in `src/style.css`.
+- Reads pinned applications from `config.json`.
+- Parses `.desktop` files for names, icon names, launch commands, `StartupWMClass`, and executable matching.
+- Uses `niri msg -j windows` and `niri msg -j focused-window` for running windows, focus, urgency, and app-id fallback.
+- Clicks focus an existing niri window, or launch the pinned desktop application when no window exists.
 - Not configured for niri autostart.
 
-## Location
-
-```sh
-~/Dev/astal-niri-dock
-```
+The old AGS implementation remains under `src/*.ts(x)` as reference only. The active implementation is under `src-qt/` and `qml/`.
 
 ## Requirements
 
-- `ags` v3 / GTK4 runtime (`aylurs-gtk-shell` on this machine)
-- `libastal-4-git`
-- `libastal-gjs-git`
-- `libastal-apps-git`
-- `libastal-niri-git`
-- niri running with `NIRI_SOCKET` available
+- Qt 6 development packages: Core, Gui, Qml, Quick, QuickControls2
+- Qt Wayland runtime/plugin
+- `layer-shell-qt` / `LayerShellQt` development package
+- `niri` running with `NIRI_SOCKET` available
+- `cmake`
+- `ninja` optional
 
 ## Run
 
@@ -33,10 +31,14 @@ cd ~/Dev/astal-niri-dock
 ./scripts/start.sh
 ```
 
-Direct command:
+`start.sh` runs CMake configure, performs an incremental build, then executes `build/astal-niri-dock-qt`.
+
+Direct build:
 
 ```sh
-ags run --gtk 4 ./src/app.tsx
+cmake -S . -B build -G Ninja
+cmake --build build
+./build/astal-niri-dock-qt
 ```
 
 ## Stop
@@ -53,7 +55,13 @@ cd ~/Dev/astal-niri-dock
 ./scripts/check.sh
 ```
 
-The check script validates JSON and shell syntax. Type/runtime checks are limited by locally available AGS/Astal TypeScript bindings.
+On a machine with Qt6 and LayerShellQt development packages installed, this configures and builds the Qt dock. On machines without those packages, it still validates JSON and shell syntax and prints a dependency warning.
+
+For strict CI-style behavior:
+
+```sh
+ASTAL_NIRI_DOCK_STRICT_CHECK=1 ./scripts/check.sh
+```
 
 ## Debug
 
@@ -62,7 +70,26 @@ cd ~/Dev/astal-niri-dock
 ./scripts/debug.sh
 ```
 
-This prints AGS instances, niri layer surfaces, niri windows, focused window, and `/tmp/astal-niri-dock.log`.
+This prints the Qt process, Qt/niri environment, niri layers/windows, the focused niri window, and `/tmp/astal-niri-dock.log`.
+
+Expected niri layers when running:
+
+```text
+Overlay layer:
+  Namespace: "astal-niri-dock"
+  Namespace: "astal-niri-dock-sensor"
+```
+
+## Runtime verification
+
+Inside a niri session with Qt6 and LayerShellQt installed:
+
+```sh
+cd ~/Dev/astal-niri-dock
+./scripts/verify-runtime.sh
+```
+
+This stops any existing dock instance, builds and starts the Qt dock with `ASTAL_NIRI_DOCK_VERIFY_VISIBLE=1`, waits for both niri layer namespaces, validates `niri msg -j windows` JSON, checks the Qt log for critical/fatal messages, then stops the dock. Normal startup still begins in the auto-hidden state.
 
 ## Configure pinned apps
 
@@ -74,35 +101,22 @@ Edit `config.json`:
 }
 ```
 
-## Optional niri autostart
-
-This project does not modify niri config automatically. If resumed later, the autostart line would be:
-
-```kdl
-spawn-at-startup "~/Dev/astal-niri-dock/scripts/start.sh"
-```
-
 ## Implementation notes
 
-- Entry point: `src/app.tsx`
-- Styling: `src/style.css`
-- Desktop app matching: `src/app-info.ts`
-- Niri integration helpers: `src/niri.ts`
-- Config loader: `src/config.ts`
+- UI and animation: `qml/Main.qml`
+- Dock state and niri polling: `src-qt/dockcontroller.cpp`
+- Desktop entry lookup and matching: `src-qt/desktopappdatabase.cpp`
+- Layer-shell setup: `src-qt/layershellbridge.cpp`
+- Theme icon rendering: `src-qt/themeiconprovider.cpp`
 
-Focus fallback order:
+Focus path:
 
 ```text
-window.focus(id) -> AstalNiri.msg.focus_window(id) -> niri msg action focus-window --id <id>
+click dock item -> niri msg action focus-window --id <id>
 ```
 
-## Archive note
+App identity fallback:
 
-Development paused because the preferred direction is now Qt6/QML. Keep this project as a reference for:
-
-- visual experiments,
-- AstalNiri property names,
-- desktop-entry matching ideas,
-- auto-hide edge sensor behavior.
-
-Do not add new features here unless explicitly reviving the Astal prototype.
+```text
+niri app_id -> wm_class -> /proc/<pid>/exe basename -> /proc/<pid>/cmdline basename
+```

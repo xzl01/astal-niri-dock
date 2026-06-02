@@ -5,9 +5,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$SCRIPT_DIR"
 
-if ! command -v ags >/dev/null 2>&1; then
-    notify-send "Astal Niri Dock" "ags is not installed or not in PATH" 2>/dev/null || true
-    printf 'astal-niri-dock: ags is not installed or not in PATH\n' >&2
+if ! command -v cmake >/dev/null 2>&1; then
+    notify-send "Astal Niri Dock" "cmake is not installed or not in PATH" 2>/dev/null || true
+    printf 'astal-niri-dock: cmake is not installed or not in PATH\n' >&2
     exit 127
 fi
 
@@ -17,4 +17,18 @@ if [ -z "${NIRI_SOCKET:-}" ]; then
     exit 2
 fi
 
-exec ags run --gtk 4 ./src/app.tsx
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland}"
+
+BUILD_DIR="${ASTAL_NIRI_DOCK_BUILD_DIR:-$SCRIPT_DIR/build}"
+APP="$BUILD_DIR/astal-niri-dock-qt"
+
+generator_args=()
+if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
+    if command -v ninja >/dev/null 2>&1; then
+        generator_args=(-G Ninja)
+    fi
+fi
+
+cmake -S "$SCRIPT_DIR" -B "$BUILD_DIR" "${generator_args[@]}"
+cmake --build "$BUILD_DIR"
+exec "$APP"

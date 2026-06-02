@@ -1,333 +1,159 @@
 # astal-niri-dock 开发说明
 
-这个项目是一个面向 niri 的 AGS / Astal GTK4 Dock 原型。它的重点不是做通用桌面环境 Dock，而是先把 niri 下的 layer-shell、窗口识别、自动隐藏和点击聚焦跑通。
+这个项目现在的主线是 Qt6/QML niri Dock。旧的 Astal/AGS GTK4 原型仍保留在 `src/*.ts(x)`，用于对照迁移过来的视觉和行为，不再是启动入口。
 
 ## 项目结构
 
 ```text
 astal-niri-dock/
-├── config.json          # 固定应用列表
-├── package.json         # AGS/TypeScript 脚本
+├── CMakeLists.txt
+├── config.json
+├── qml/
+│   └── Main.qml                 # Dock UI、动画、sensor
 ├── scripts/
-│   ├── check.sh         # 静态检查
-│   ├── debug.sh         # 运行时诊断
-│   ├── start.sh         # 启动 Dock
-│   └── stop.sh          # 停止 Dock
-└── src/
-    ├── app.tsx          # AGS 入口、UI、自动隐藏、窗口绑定
-    ├── app-info.ts      # .desktop 查询和应用匹配
-    ├── config.ts        # config.json 加载
-    ├── niri.ts          # AstalNiri / niri IPC 辅助函数
-    └── style.css        # Dock 视觉样式
+│   ├── check.sh                 # JSON/shell 检查；有 Qt 时构建
+│   ├── debug.sh                 # 运行时诊断
+│   ├── start.sh                 # 构建并启动 Qt Dock
+│   └── stop.sh                  # 停止 Qt Dock
+├── src-qt/
+│   ├── desktopappdatabase.*     # .desktop 查询、匹配、启动
+│   ├── dockcontroller.*         # 配置、niri 轮询、自动隐藏、点击处理
+│   ├── layershellbridge.*       # LayerShellQt overlay layer 配置
+│   ├── main.cpp                 # Qt/QML 入口
+│   └── themeiconprovider.*      # 主题图标 image provider
+└── src/                         # legacy AGS 原型参考
 ```
 
-## 运行入口
+## 迁移后的功能对应
 
-开发时优先使用脚本：
-
-```sh
-cd ~/Dev/astal-niri-dock
-./scripts/start.sh
-```
-
-`start.sh` 会做两件检查：
-
-1. `ags` 是否在 `PATH` 里
-2. `NIRI_SOCKET` 是否存在
-
-检查通过后执行：
-
-```sh
-ags run --gtk 4 ./src/app.tsx
-```
-
-AGS 这里必须使用 GTK4。不要去掉 `--gtk 4`。
-
-## 运行时窗口
-
-`src/app.tsx` 里 `app.start()` 会创建两个 overlay window：
-
-| namespace | 作用 |
+| AGS 原型功能 | Qt/QML 实现 |
 | --- | --- |
-| `astal-niri-dock` | Dock 主体 |
-| `astal-niri-dock-sensor` | 底部 2px 边缘触发区 |
-
-预期 `niri msg layers` 能看到：
-
-```text
-Overlay layer:
-  Surface:
-    Namespace: "astal-niri-dock"
-
-  Surface:
-    Namespace: "astal-niri-dock-sensor"
-```
-
-如果看不到这两个 surface，先检查 Dock 是否启动、`NIRI_SOCKET` 是否存在，以及是否有旧实例残留。
+| `astal-niri-dock` overlay window | `LayerShellBridge::configureDock()` |
+| `astal-niri-dock-sensor` bottom sensor | `LayerShellBridge::configureSensor()` + QML `HoverHandler` |
+| `dockTrigger || dockHovered` 自动隐藏 | `DockController` 的 edge/dock hover 状态和两个 timer |
+| pinned apps from `config.json` | `DockController::loadPinnedConfig()` |
+| `AstalApps` desktop entry lookup | `DesktopAppDatabase` 手动解析 `.desktop` |
+| `AstalNiri` windows binding | `niri msg -j windows` 轮询 |
+| focused window fallback | `niri msg -j focused-window` |
+| click-to-focus | `niri msg action focus-window --id <id>` |
+| app id fallback via `/proc/<pid>` | `DockController::processNameForPid()` |
+| glass CSS styling | `qml/Main.qml` 的 `Rectangle`/gradient/animation |
 
 ## 自动隐藏逻辑
 
-自动隐藏逻辑在 `src/app.tsx`：
+常量在 `src-qt/dockcontroller.cpp`：
+
+```cpp
+constexpr int DockHideTimeoutMs = 650;
+constexpr int EdgeHideTimeoutMs = 260;
+```
+
+状态流：
 
 ```text
-dockTrigger  # 鼠标进入底部 sensor 后为 true
-dockHovered  # 鼠标停留在 Dock 本体时为 true
-showDock = dockTrigger || dockHovered
+edgeEntered -> edge active true
+edgeExited  -> 260ms 后 edge active false
+dockEntered -> dock hovered true
+dockExited  -> 650ms 后 dock hovered false
+showDock    -> edge active || dock hovered
 ```
 
-两个时间常量：
+QML 根据 `dockController.showDock` 播放进入/退出动画。退出动画完成后才隐藏 dock window，底部 sensor window 始终保持可见。
 
-```ts
-const DOCK_HIDE_TIMEOUT = 650
-const EDGE_HIDE_TIMEOUT = 260
-```
+## 视觉参数
 
-CSS 里的 `.DockBarContainer.slide-out` 负责真正的隐藏动画：
+关键尺寸从 AGS 原型迁移到 `qml/Main.qml`：
 
-```css
-.DockBarContainer.slide-out {
-  opacity: 0;
-  transform: translateY(86px) scale(0.94);
-}
-```
-
-改自动隐藏行为时，先看 `EdgeSensor`、`Dock` 组件和这两个 timeout，不要直接从 CSS 硬改状态。
-
-## 数据流
-
-Dock 条目由两类来源组成：
-
-1. `config.json` 里的固定应用
-2. niri 当前窗口列表里的运行应用
-
-核心流程：
-
-```text
-config.json
-  -> loadConfig()
-  -> pinnedApps
-
-AstalNiri windows
-  -> windowAppId()
-  -> findApp() / matchAppId()
-  -> DockEntry[]
-  -> DockItem
-```
-
-`DockEntry` 在 `src/app.tsx` 里定义：
-
-```ts
-type DockEntry = {
-  appInfo: AppInfo
-  windows: NiriWindow[]
-  focused: boolean
-}
-```
-
-点击 `DockItem` 时：
-
-- 如果这个条目有窗口，focus 第一个窗口
-- 如果没有窗口，调用 desktop entry 的 launch
+- Dock window 高度：`96`
+- edge sensor 高度：`6`
+- Dock bar 最小宽度：`272`
+- Dock item：`54px`
+- icon pixel size：`38`
+- focused running dot 宽度：`20px`
+- 普通 running dot：`4px`
 
 ## 应用识别规则
 
-应用识别分两层：
+不要用窗口标题做身份识别。标题只适合 tooltip。
 
-- `src/niri.ts` 从窗口拿应用身份
-- `src/app-info.ts` 把应用身份映射到 `.desktop`
-
-### `windowAppId()` 的优先级
-
-当前识别链是：
+当前匹配候选：
 
 ```text
-AstalNiri window.appId / app_id
-  -> niri msg -j windows 里同 id 窗口的 app_id
-  -> wmClass / wm_class
-  -> /proc/<pid>/exe basename
-  -> /proc/<pid>/cmdline basename
-```
-
-这么做是为了处理飞书这类 `app_id` 为空的应用。
-
-niri IPC 里飞书窗口类似：
-
-```json
-{
-  "title": "飞书",
-  "app_id": "",
-  "pid": 819857
-}
-```
-
-AstalNiri 的 `Window` 对象不暴露 `pid`，所以不能直接读 `window.pid`。当 `app-id` 为空时，代码会用 `window.id` 调 `niri msg -j windows` 找回原始窗口 JSON，再从 JSON 里拿 `pid`。
-
-### 不要用 title 做身份识别
-
-`title` 只能用于 tooltip 或显示窗口名，不要用来匹配 `.desktop`。
-
-原因很简单：窗口标题会随着网页、文档、聊天内容变化。用它做身份识别会带来误匹配。
-
-`src/app-info.ts` 当前刻意避免：
-
-- title matching
-- substring matching
-- fuzzy matching
-
-匹配 `.desktop` 时优先比较这些稳定字段：
-
-```text
-app_id
-app_id.desktop
+desktop id
+desktop id without .desktop
+desktop file basename
 StartupWMClass
 Exec basename
 ```
 
-## `.desktop` 查询
-
-`src/app-info.ts` 使用 `AstalApps`：
-
-```ts
-const applications = new Apps.Apps({
-  nameMultiplier: 2,
-  entryMultiplier: 2,
-  executableMultiplier: 2,
-})
-```
-
-导出的主要函数：
-
-- `findApp(id: string): AppInfo`
-- `matchAppId(app: AppInfo, appIdOrClass: string): boolean`
-
-`findApp()` 找不到 desktop entry 时会返回一个 fallback `AppInfo`，图标用 `application-x-executable`，点击时只打印错误，不会崩溃。
-
-## Niri focus 回退链
-
-窗口聚焦逻辑在 `src/niri.ts` 的 `focusWindow()`。
-
-当前顺序：
+niri 窗口身份 fallback：
 
 ```text
-window.focus(id)
-  -> AstalNiri.msg.focus_window(id)
-  -> niri msg action focus-window --id <id>
+app_id
+-> appId
+-> wm_class / wmClass
+-> /proc/<pid>/exe basename
+-> /proc/<pid>/cmdline basename
 ```
 
-保留这三层回退是有意的。AstalNiri 的 API 和类型绑定可能变化，CLI fallback 可以保证个人桌面工具继续可用。
+## LayerShellQt
 
-## 样式入口
+Qt Wayland 普通窗口不能完整替代 dock layer 行为。目标 niri 环境需要安装 LayerShellQt，这样两个 QML `Window` 才会成为 overlay layer surface，并使用以下 namespace：
 
-所有视觉样式在 `src/style.css`。
-
-主要类名：
-
-| 类名 | 作用 |
-| --- | --- |
-| `window.DockWindow` | Dock 主窗口背景 |
-| `.DockBarContainer` | Dock 外层容器和隐藏动画 |
-| `.DockBar` | 玻璃背景、圆角、阴影 |
-| `.DockItemBox` | 单个图标外层 |
-| `.DockItem` | 图标按钮样式 |
-| `.DockItem.focused` | 当前焦点应用 |
-| `.DockItem.urgent` | urgent 应用 |
-| `.DockIcon` | 图标阴影 |
-| `.RunningDot` | 运行状态小点 |
-| `.RunningDot.focused` | 当前焦点应用的长条指示器 |
-| `.EdgeSensorFill` | 底部触发区 |
-
-常用尺寸：
-
-- Dock window 高度：`96`
-- edge sensor 高度：`2`
-- Dock item：`52px`
-- icon pixel size：`38`
-- focused running dot 宽度：`18px`
-
-## 配置固定应用
-
-编辑 `config.json`：
-
-```json
-{
-  "pinned": [
-    "firefox.desktop",
-    "org.kde.dolphin.desktop",
-    "code.desktop",
-    "kitty.desktop"
-  ]
-}
+```text
+astal-niri-dock
+astal-niri-dock-sensor
 ```
 
-配置文件路径目前写死在 `src/config.ts`：
+不要引入 Hyprland-only IPC 或 layer APIs。
 
-```ts
-const path = "config.json"
+启动脚本和 `LayerShellBridge::initialize()` 都会在未显式设置时使用：
+
+```sh
+QT_QPA_PLATFORM=wayland
 ```
 
-如果后续要安装成系统服务或迁移目录，这里应该改成 XDG config 路径。
+否则 Qt 可能走不到 Wayland layer-shell integration。
 
 ## 常用命令
 
 ```sh
 cd ~/Dev/astal-niri-dock
 
-# 静态检查
 ./scripts/check.sh
-
-# 启动
-./scripts/start.sh
-
-# 停止
 ./scripts/stop.sh
-
-# 打印运行时状态
+./scripts/start.sh
 ./scripts/debug.sh
+./scripts/verify-runtime.sh
 ```
 
-`debug.sh` 会输出：
+Qt 版会把 Qt message handler 输出写入 `/tmp/astal-niri-dock.log`，`debug.sh` 会读取这个文件，和旧原型的诊断入口保持一致。
 
-- `ags list`
-- `niri msg layers`
-- `niri msg -j windows`
-- `niri msg -j focused-window`
-- `/tmp/astal-niri-dock.log`
+`verify-runtime.sh` 是目标 niri 环境里的端到端验证入口：它会停止旧实例、用 `ASTAL_NIRI_DOCK_VERIFY_VISIBLE=1` 构建并启动 Qt dock、等待两个 niri layer namespace、校验 `niri msg -j windows` JSON、检查 Qt 日志里是否有 critical/fatal，再自动停止 dock。这个环境变量只用于验证主 Dock layer 可观测，普通启动仍保持自动隐藏初始状态。
+
+严格检查：
+
+```sh
+ASTAL_NIRI_DOCK_STRICT_CHECK=1 ./scripts/check.sh
+```
 
 ## 验证 checklist
 
-改完代码后至少跑：
-
-```sh
-./scripts/check.sh
-./scripts/stop.sh
-./scripts/start.sh
-./scripts/debug.sh
-```
-
-重点看：
-
-1. `check.sh` 是否输出 `astal-niri-dock: static checks passed`
-2. `niri msg layers` 是否有 `astal-niri-dock` 和 `astal-niri-dock-sensor`
-3. `niri msg -j windows` 里新开的应用是否有合理的 `app_id` / `pid`
-4. Dock 是否显示 pinned app 和运行中 app
-5. 点击运行中 app 是否能 focus 对应窗口
-6. urgent 应用是否出现 `.urgent` 样式
+1. `./scripts/check.sh` 能完成 Qt 构建，或在非目标机器上明确报告缺少 Qt。
+2. `./scripts/start.sh` 在 niri 会话里启动 `astal-niri-dock-qt`。
+3. `niri msg layers` 出现 `astal-niri-dock` 和 `astal-niri-dock-sensor`。
+4. Dock 显示 `config.json` 中 pinned apps。
+5. 运行中的窗口显示 running dot。
+6. 当前 focused 应用显示长条 focused indicator。
+7. urgent 窗口显示 urgent 样式。
+8. 点击运行中 app 能 focus 对应 niri window。
+9. 点击未运行 pinned app 能通过 `.desktop` 启动。
+10. 底部 sensor 触发显示，离开 dock 后自动隐藏。
+11. `./scripts/verify-runtime.sh` 在目标 niri 环境里通过。
 
 ## 当前 caveats
 
-- 必须在 niri 会话内运行，依赖 `NIRI_SOCKET`。
-- 必须用 `ags run --gtk 4`。
-- `AstalNiri.Window` 不暴露 `pid`，需要通过 `niri msg -j windows` 补字段。
-- `windowJsonCache` 当前缓存 500ms，减少频繁 shell 调用，但仍然不是长期最优方案。
-- `config.json` 路径写死，不适合打包安装。
-- 没有 autostart 配置。
-- `scripts/check.sh` 里的 `tsc --noEmit || true` 不会阻断 TypeScript 错误，后续如果类型环境稳定，应该改成失败即退出。
-- 当前应用匹配比较保守，避免误识别。代价是某些没有稳定 `app_id` / `StartupWMClass` / `Exec` 关系的应用可能显示成 fallback 图标。
-
-## 修改建议
-
-- 改 UI：优先改 `src/style.css`，不要动 Niri 逻辑。
-- 改自动隐藏：看 `Dock`、`EdgeSensor` 和两个 timeout。
-- 改应用识别：先用 `./scripts/debug.sh` 看真实 `niri msg -j windows`，不要直接加 title/fuzzy matching。
-- 改固定应用：优先改 `config.json`。
-- 改启动方式：看 `scripts/start.sh`，不要在代码里加 autostart。
+- 必须在 niri 会话内完整验证，依赖 `NIRI_SOCKET`。
+- 当前机器如果没有 Qt6/LayerShellQt 开发包，只能跑 JSON/shell 检查，不能证明运行时完成。
+- `niri msg` 轮询间隔为 600ms，足够迁移原型功能，但不是长期最优 IPC 方案。
+- 项目没有安装流程，也没有 autostart 配置。

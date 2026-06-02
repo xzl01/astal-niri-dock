@@ -2,7 +2,7 @@
 
 ## Project status
 
-This is an Astal/AGS GTK4 prototype dock for niri.
+This project has been revived as a Qt6/QML dock for niri. The original Astal/AGS GTK4 prototype is kept in `src/*.ts(x)` as migration reference, but the active implementation is Qt/QML.
 
 ## Working directory
 
@@ -12,24 +12,26 @@ This is an Astal/AGS GTK4 prototype dock for niri.
 
 ## Rules for future agents
 
-- Treat this project as archived unless the user explicitly asks to revive it.
 - Do not add features proactively.
 - Keep changes minimal and reversible.
 - Preserve niri compatibility; do not introduce Hyprland-only APIs.
 - Do not add autostart entries unless explicitly requested.
-- Prefer Qt6/QML for any new dock direction unless the user specifically asks for Astal/AGS.
+- Keep the Qt6/QML implementation as the active direction unless the user specifically asks for Astal/AGS.
 
 ## Architecture
 
-- `src/app.tsx`: AGS GTK4 entry point, dock UI, auto-hide sensor, click handling.
-- `src/style.css`: visual styling for glass dock, hover states, running indicators.
-- `src/app-info.ts`: `AstalApps` desktop-entry lookup, icon names, app matching.
-- `src/niri.ts`: `AstalNiri` helpers for app id, focus, urgency, and CLI fallback.
-- `src/config.ts`: loads `config.json` from the project working directory.
-- `scripts/start.sh`: starts the AGS instance.
-- `scripts/stop.sh`: stops the AGS instance.
-- `scripts/check.sh`: static checks.
-- `scripts/debug.sh`: prints AGS/niri/debug status.
+- `CMakeLists.txt`: Qt6/C++ build entry point.
+- `qml/Main.qml`: dock UI, glass styling, hover animations, running/focused/urgent indicators, bottom sensor.
+- `src-qt/main.cpp`: Qt application entry point and QML context setup.
+- `src-qt/dockcontroller.*`: config loading, auto-hide state, niri polling, dock entry model, click handling.
+- `src-qt/desktopappdatabase.*`: `.desktop` lookup, icon names, app matching, launching.
+- `src-qt/layershellbridge.*`: LayerShellQt setup for niri overlay layer windows.
+- `src-qt/themeiconprovider.*`: QML image provider for themed desktop icons.
+- `src/*.ts(x)`: legacy AGS prototype reference only.
+- `scripts/start.sh`: builds if needed and starts the Qt dock.
+- `scripts/stop.sh`: stops the Qt dock and any legacy AGS instance.
+- `scripts/check.sh`: JSON/shell checks and Qt build when dependencies are installed.
+- `scripts/debug.sh`: prints Qt process, legacy AGS/niri/debug status.
 
 ## Validation commands
 
@@ -39,6 +41,7 @@ cd ~/Dev/astal-niri-dock
 ./scripts/stop.sh
 ./scripts/start.sh
 ./scripts/debug.sh
+./scripts/verify-runtime.sh
 ```
 
 Expected niri layers when running:
@@ -51,19 +54,18 @@ Overlay layer:
 
 ## Known dependencies
 
-- `aylurs-gtk-shell` provides `ags`.
-- `libastal-4-git`
-- `libastal-gjs-git`
-- `libastal-apps-git`
-- `libastal-niri-git`
+- Qt6 development packages: Core, Gui, Qml, Quick, QuickControls2.
+- Qt Wayland runtime/plugin.
+- `layer-shell-qt` / `LayerShellQt` development package for Wayland layer-shell support.
+- `niri` with `NIRI_SOCKET` available.
+- `cmake` and optionally `ninja`.
 
 ## Known caveats
 
-- AGS needs `--gtk 4` for this entry point.
-- Some Astal/Niri examples use both `appId` and `app_id`; this project handles both.
-- `Window.focus()` in AstalNiri requires an id argument.
 - The project is not installed and not autostarted.
+- Runtime validation must happen inside a niri session.
+- LayerShellQt is required. Without it, the dock layer behavior is not complete and the Qt build should fail.
 
 ## Future direction
 
-If the user asks to continue dock work, first consider whether the requested work belongs in a new Qt6/QML project instead of this Astal archive.
+Continue the Qt6/QML implementation unless the user explicitly asks to inspect or restore the legacy Astal/AGS prototype.
