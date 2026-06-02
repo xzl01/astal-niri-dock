@@ -31,7 +31,9 @@ void LayerShellBridge::initialize()
     }
 
 #ifdef HAVE_LAYER_SHELL_QT
+#if QT_VERSION < QT_VERSION_CHECK(6, 5, 0)
     LayerShellQt::Shell::useLayerShell();
+#endif
 #endif
 }
 
@@ -59,7 +61,8 @@ void LayerShellBridge::configure(QWindow *window, const QString &scope, int heig
         layerWindow->setScope(scope);
         layerWindow->setLayer(LayerShellQt::Window::LayerOverlay);
         layerWindow->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
-        layerWindow->setAnchors(LayerShellQt::Window::AnchorBottom | LayerShellQt::Window::AnchorLeft | LayerShellQt::Window::AnchorRight);
+        layerWindow->setAnchors(static_cast<LayerShellQt::Window::Anchors>(
+            LayerShellQt::Window::AnchorBottom | LayerShellQt::Window::AnchorLeft | LayerShellQt::Window::AnchorRight));
         layerWindow->setExclusiveZone(0);
         layerWindow->setMargins(QMargins(0, 0, 0, bottomMargin));
         layerWindow->setDesiredSize(QSize(0, height));
