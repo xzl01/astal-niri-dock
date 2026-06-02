@@ -9,9 +9,6 @@ type NiriWindowJson = {
   pid?: number
 }
 
-let windowJsonCache: NiriWindowJson[] = []
-let windowJsonCacheTime = 0
-
 function basename(path: string): string {
   return path.split("/").filter(Boolean).pop() ?? ""
 }
@@ -37,27 +34,32 @@ function processNameForPid(pid: unknown): string {
   }
 }
 
-function niriWindowJsonForId(id: unknown): NiriWindowJson | null {
-  const numericId = Number(id)
-  if (!Number.isFinite(numericId)) return null
+const niriWindowJsonForId = (() => {
+  let cache: NiriWindowJson[] = []
+  let cacheTime = 0
 
-  const now = Date.now()
-  if (now - windowJsonCacheTime > 500) {
-    try {
-      const [, stdout] = GLib.spawn_command_line_sync("niri msg -j windows")
-      const text = new TextDecoder().decode(stdout)
-      const parsed = JSON.parse(text)
-      windowJsonCache = Array.isArray(parsed) ? parsed : []
-      windowJsonCacheTime = now
-    } catch (error) {
-      printerr(`astal-niri-dock: failed to query niri windows: ${error}`)
-      windowJsonCache = []
-      windowJsonCacheTime = now
+  return (id: unknown): NiriWindowJson | null => {
+    const numericId = Number(id)
+    if (!Number.isFinite(numericId)) return null
+
+    const now = Date.now()
+    if (now - cacheTime > 500) {
+      try {
+        const [, stdout] = GLib.spawn_command_line_sync("niri msg -j windows")
+        const text = new TextDecoder().decode(stdout)
+        const parsed = JSON.parse(text)
+        cache = Array.isArray(parsed) ? parsed : []
+        cacheTime = now
+      } catch (error) {
+        printerr(`astal-niri-dock: failed to query niri windows: ${error}`)
+        cache = []
+        cacheTime = now
+      }
     }
-  }
 
-  return windowJsonCache.find((window) => Number(window.id) === numericId) ?? null
-}
+    return cache.find((window) => Number(window.id) === numericId) ?? null
+  }
+})()
 
 export function getNiri(): Niri.Niri | null {
   try {

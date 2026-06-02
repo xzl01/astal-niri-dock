@@ -57,13 +57,11 @@ export function findApp(id: string): AppInfo {
   if (cached) return cached
 
   const wantedForms = appIdForms(id)
-  const exact = applications.list.find((app) => {
+  const app = applications.list.find((app) => {
     const candidates = appCandidates(app)
 
     return wantedForms.some((wanted) => candidates.includes(wanted))
   })
-
-  const app = exact
 
   if (!app) {
     const fallback: AppInfo = {

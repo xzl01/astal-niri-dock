@@ -87,12 +87,6 @@ window.DockWindow {
   filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.34));
 }
 
-.DockLabel {
-  color: #c0caf5;
-  font-size: 10px;
-  font-weight: 700;
-}
-
 .RunningDot {
   min-width: 4px;
   min-height: 4px;
@@ -107,13 +101,6 @@ window.DockWindow {
   min-width: 20px;
   background: linear-gradient(90deg, #b8c0ff, #94d8ff);
   box-shadow: 0 0 14px rgba(160, 180, 255, 0.45);
-}
-
-.Separator {
-  min-width: 1px;
-  min-height: 36px;
-  margin: 0 8px;
-  background: rgba(255, 255, 255, 0.14);
 }
 
 window.EdgeSensor {
