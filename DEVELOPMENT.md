@@ -151,6 +151,64 @@ ASTAL_NIRI_DOCK_STRICT_CHECK=1 ./scripts/check.sh
 10. 底部 sensor 触发显示，离开 dock 后自动隐藏。
 11. `./scripts/verify-runtime.sh` 在目标 niri 环境里通过。
 
+## niri 26.04 + Qt 6.11 Wayland 兼容性问题
+
+### 现象
+
+Qt 6.11 Wayland QPA 插件在 niri 26.04 上**完全不创建 Wayland surface**（`wl_compositor.create_surface` 未被调用），导致 Qt/QML 窗口不可见。`niri msg layers` 的 overlay 层为空，`niri msg -j windows` 中也不出现 dock 窗口。
+
+Wayland 协议层的行为：
+
+```text
+→ wl_registry.bind("wl_compositor", 6)     // Qt 绑定 v6
+// 之后再也没有 create_surface 调用
+// Qt 内部 QWindow 存在，Wayland 层面不存在
+```
+
+对比正常工作的客户端（如 kitty）：
+
+```text
+→ wl_registry.bind("wl_compositor", 4)     // 绑定 v4 → 正常
+→ wl_compositor.create_surface(...)         // surface 正常创建
+```
+
+### 根因
+
+**`wl_compositor` 协议版本 6 的 `preferred_buffer_scale` 事件处理缺失。**
+
+niri 26.04 通过 [PR #55](https://github.com/niri-wm/niri/pull/55) 实现了 `wl_compositor` v6。该版本引入 `preferred_buffer_scale` 和 `preferred_buffer_transform` 事件，niri 在 surface 创建后立即发送。
+
+Qt 6.11 的 Wayland 客户端同样绑定 `wl_compositor` v6（可以从 `WAYLAND_DEBUG` 日志确认），但 `libqwayland-generic.so` 中没有 `preferred_buffer_scale` 事件的处理逻辑（通过 `strings` 确认）。这导致协议层反序列化，Qt 的 surface 创建管线被静默阻断。
+
+根本原因在于 **Qt Wayland 客户端对 `wl_compositor` v6 的适配滞后于 compositor 侧的协议实现**。
+
+### 社区报告
+
+| 报告 | 链接 | 状态 |
+| --- | --- | --- |
+| WezTerm 窗口在 niri 下不可见（同类 `wl_surface` 事件问题） | [niri#87](https://github.com/niri-wm/niri/issues/87) | 确认为客户端 bug |
+| Qt Qml 在 niri 下渲染异常（含 layershellqt 问题） | [niri#2471](https://github.com/niri-wm/niri/issues/2471) | 开放 |
+| Qt Quick 应用完全不渲染 | [niri#3171](https://github.com/niri-wm/niri/issues/3171) | 已关（归因于 NVIDIA） |
+| `wl_compositor` v6 + Qt 6.11 组合不稳定 | [Kvantum#1136](https://github.com/tsujan/Kvantum/discussions/1136) | 活跃讨论 |
+
+### 修复方案
+
+| 方案 | 操作 | 可行性 |
+| --- | --- | --- |
+| **继续使用 AGS/GTK4 dock**（推荐） | `git checkout master && ./scripts/start.sh` | 已验证可用 |
+| 给 niri 降级 `wl_compositor` | 修改 niri 源码中 Smithay 的 version 声明，降至 v5 | 需每次 niri 更新重新打补丁 |
+| Qt 上游修复 | 等待 qtwayland 添加 `preferred_buffer_scale` 事件处理 | 时间不确定 |
+
+### 如何验证修复
+
+当 Qt 或 niri 更新后，运行以下步骤验证兼容性是否恢复：
+
+```bash
+QT_QPA_PLATFORM=wayland WAYLAND_DEBUG=1 timeout 4 ./build/astal-niri-dock-qt 2>&1 | grep -c "create_surface"
+```
+
+如果计数 > 0（期望 ≥ 2，对应 dock window + sensor window），则兼容性问题已解决。
+
 ## 当前 caveats
 
 - 必须在 niri 会话内完整验证，依赖 `NIRI_SOCKET`。

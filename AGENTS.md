@@ -62,6 +62,7 @@ Overlay layer:
 
 ## Known caveats
 
+- **CRITICAL: niri 26.04 + Qt 6.11 Wayland incompatibility.** `wl_compositor` v6's `preferred_buffer_scale` event has no handler in Qt's Wayland client, preventing all surface creation. The Qt dock code compiles but produces invisible windows. Use the AGS/GTK4 prototype (master branch) until Qt or niri resolves this. Full analysis in `DEVELOPMENT.md`.
 - The project is not installed and not autostarted.
 - Runtime validation must happen inside a niri session.
 - LayerShellQt is required. Without it, the dock layer behavior is not complete and the Qt build should fail.
@@ -69,3 +70,5 @@ Overlay layer:
 ## Future direction
 
 Continue the Qt6/QML implementation unless the user explicitly asks to inspect or restore the legacy Astal/AGS prototype.
+
+Before attempting to run the Qt dock, verify the Qt+Wayland+niri compatibility as described in `DEVELOPMENT.md`.
